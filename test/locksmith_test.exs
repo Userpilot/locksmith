@@ -14,7 +14,7 @@ defmodule LocksmithTest do
 
     test "Locksmith.transaction/3 fails if not passed a arguments list" do
       assert_raise ArgumentError, fn ->
-        Locksmith.transaction("key", fn a -> IO.inspect(a) end, :not_a_list)
+        Locksmith.transaction("key", fn a -> a end, :not_a_list)
       end
     end
 
