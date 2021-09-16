@@ -15,7 +15,7 @@ defmodule Locksmith.Application do
       }
     ]
 
-    opts = [strategy: :one_for_one, name: Core.Supervisor]
+    opts = [strategy: :one_for_one, name: Locksmith.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
