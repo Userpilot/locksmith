@@ -19,7 +19,7 @@ defmodule Locksmith.MixProject do
       source_url: @scm_url,
       homepage_url: @scm_url,
       docs: [
-        main: "README",
+        # main: "README",
         extras: ["README.md"]
       ]
     ]

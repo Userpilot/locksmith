@@ -92,7 +92,12 @@ defmodule Locksmith do
   acquire the lock again, this behaviour is done recursively.
   """
 
-  @doc "Alternative to `transaction/3` that takes an anonymous function with arity zero."
+  @doc """
+  Given a locking key, an anonymous function of arity zero, lock the given key and execute the function,
+  then release the key. If the key is already locked then retry to lock the key and run again
+  after some delay. This is achieved by blocking the caller process using a `receive/1`
+  call coupled with `Process.send_after/4`.
+  """
   @spec transaction(any, (() -> any)) :: any
   def transaction(key, fun)
       when is_function(fun),
@@ -100,13 +105,7 @@ defmodule Locksmith do
 
   def transaction(_key, fun), do: argument_error([fun])
 
-  @doc """
-  Given a locking key, an anonymous function of any arity, and a list of arguments to pass
-  to that function, lock the given key and execute the function, then release the key.
-  If the key is already locked then retry to lock the key and run again after some
-  delay. This is achieved by blocking the caller process using a `receive/1`
-  call coupled with `Process.send_after/4`.
-  """
+  @doc "Alternative to `transaction/2` that takes an anonymous function of any arity and a list of arguments for it."
   @spec transaction(any, (... -> any), list) :: any
   def transaction(key, fun, args)
       when is_function(fun) and is_list(args),
@@ -114,7 +113,7 @@ defmodule Locksmith do
 
   def transaction(_key, fun, args), do: argument_error([fun, args])
 
-  @doc "Alternative to `transaction/3` that takes an MFA instead of an anonymous function."
+  @doc "Alternative to `transaction/2` that takes an MFA instead of an anonymous function."
   @spec transaction(any, module, atom, list) :: any
   def transaction(key, mod, fun, args)
       when is_atom(mod) and is_atom(fun) and is_list(args),
