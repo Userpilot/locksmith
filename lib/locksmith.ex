@@ -90,6 +90,13 @@ defmodule Locksmith do
   operation, and before running the `receive/1` operation it'll sent itself a delayed message
   using `Process.send/4`, once it receives the message it sent itself, it'll attempt to
   acquire the lock again, this behaviour is done recursively.
+
+  Each locked key is given a max reties before it can forcefully aquire the lock, this is done to make sure
+  locked keys are not kept locked forever if the locking processes fails to release the lock(implementation
+  issue or the processes has been killed).
+
+  The current threshold is set to 60000 which means the threshold will be between 60s and 600s(given the
+  uniforn delay is between 1ms to 10 ms)
   """
 
   @doc """
@@ -98,6 +105,9 @@ defmodule Locksmith do
   after some delay. This is achieved by blocking the caller process using a `receive/1`
   call coupled with `Process.send_after/4`.
   """
+
+  @retry_threshold 60000
+
   @spec transaction(any, (() -> any)) :: any
   def transaction(key, fun)
       when is_function(fun),
@@ -125,7 +135,17 @@ defmodule Locksmith do
   # Internal implementation
   #
 
-  defp apply_with_lock(key, args) do
+  defp apply_with_lock(key, args, retry \\ 0)
+
+  defp apply_with_lock(key, args, retry) when retry >= @retry_threshold do
+    # Forece-release key from old processes
+    release(key)
+    # Try to aquire lock again
+    apply_with_lock(key, args)
+  end
+
+
+  defp apply_with_lock(key, args, retry) do
     if acquire(key) do
       try do: do_apply(args),
           after: release(key)
@@ -133,7 +153,7 @@ defmodule Locksmith do
       Process.send_after(self(), :retry_apply_with_lock, delay())
 
       receive do
-        :retry_apply_with_lock -> apply_with_lock(key, args)
+        :retry_apply_with_lock -> apply_with_lock(key, args, retry + 1)
       end
     end
   end
@@ -172,8 +192,8 @@ defmodule Locksmith do
        when is_atom(mod) and is_atom(fun) and is_list(args),
        do: apply(mod, fun, args)
 
-  # Delay is a random value between 1ms and 50ms
-  defp delay, do: :rand.uniform(50) + 1
+  # Delay is a random value between 1ms and 10ms
+  defp delay, do: :rand.uniform(10) + 1
 
   #
   # Provide friendly error messages
