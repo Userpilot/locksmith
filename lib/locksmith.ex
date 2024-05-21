@@ -95,8 +95,7 @@ defmodule Locksmith do
   locked keys are not kept locked forever if the locking processes fails to release the lock(implementation
   issue or the processes has been killed).
 
-  The current threshold is set to 60000 which means the threshold will be between 60s and 600s(given the
-  uniforn delay is between 1ms to 10 ms)
+  The current threshold is set to 30_000 which means the threshold will be 30s
   """
 
   @doc """
@@ -106,7 +105,7 @@ defmodule Locksmith do
   call coupled with `Process.send_after/4`.
   """
 
-  @retry_threshold 60000
+  @retry_threshold 30_000
 
   @spec transaction(any, (() -> any)) :: any
   def transaction(key, fun)
@@ -150,10 +149,11 @@ defmodule Locksmith do
       try do: do_apply(args),
           after: release(key)
     else
-      Process.send_after(self(), :retry_apply_with_lock, delay())
+      delay = delay()
+      Process.send_after(self(), {:retry_apply_with_lock, retry+delay}, delay)
 
       receive do
-        :retry_apply_with_lock -> apply_with_lock(key, args, retry + 1)
+        {:retry_apply_with_lock, delay} -> apply_with_lock(key, args, delay)
       end
     end
   end
